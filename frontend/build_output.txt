@@ -1,0 +1,6 @@
+
+> mediconnect-frontend@1.0.0 build
+> tsc && vite build
+
+src/api/axiosConfig.ts(4,34): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/api/axiosConfig.ts(17,21): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
