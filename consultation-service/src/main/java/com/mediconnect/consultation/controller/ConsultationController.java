@@ -28,7 +28,7 @@ public class ConsultationController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get consultation by ID")
-    public ResponseEntity<Consultation> getConsultationById(@PathVariable Long id) {
+    public ResponseEntity<Consultation> getConsultationById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(consultationService.getConsultationById(id));
     }
 
@@ -42,33 +42,36 @@ public class ConsultationController {
     @PutMapping("/{id}")
     @Operation(summary = "Update a consultation record")
     public ResponseEntity<Consultation> updateConsultation(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody Consultation consultation) {
         return ResponseEntity.ok(consultationService.updateConsultation(id, consultation));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a consultation record")
-    public ResponseEntity<Void> deleteConsultation(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteConsultation(@PathVariable("id") Long id) {
         consultationService.deleteConsultation(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/patient/{patientId}")
     @Operation(summary = "Get consultations by patient ID")
-    public ResponseEntity<List<Consultation>> getConsultationsByPatient(@PathVariable Long patientId) {
+    public ResponseEntity<List<Consultation>> getConsultationsByPatient(
+            @PathVariable("patientId") Long patientId) {
         return ResponseEntity.ok(consultationService.getConsultationsByPatient(patientId));
     }
 
     @GetMapping("/doctor/{doctorId}")
     @Operation(summary = "Get consultations by doctor ID")
-    public ResponseEntity<List<Consultation>> getConsultationsByDoctor(@PathVariable Long doctorId) {
+    public ResponseEntity<List<Consultation>> getConsultationsByDoctor(
+            @PathVariable("doctorId") Long doctorId) {
         return ResponseEntity.ok(consultationService.getConsultationsByDoctor(doctorId));
     }
 
     @GetMapping("/appointment/{appointmentId}")
     @Operation(summary = "Get consultation by appointment ID")
-    public ResponseEntity<Consultation> getConsultationByAppointment(@PathVariable Long appointmentId) {
+    public ResponseEntity<Consultation> getConsultationByAppointment(
+            @PathVariable("appointmentId") Long appointmentId) {
         return ResponseEntity.ok(consultationService.getConsultationByAppointment(appointmentId));
     }
 }

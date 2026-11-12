@@ -41,7 +41,7 @@ public class DoctorController {
             @ApiResponse(responseCode = "200", description = "Doctor found"),
             @ApiResponse(responseCode = "404", description = "Doctor not found")
     })
-    public ResponseEntity<Doctor> getDoctorById(@PathVariable Long id) {
+    public ResponseEntity<Doctor> getDoctorById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(doctorService.getDoctorById(id));
     }
 
@@ -58,20 +58,21 @@ public class DoctorController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a doctor")
-    public ResponseEntity<Doctor> updateDoctor(@PathVariable Long id, @Valid @RequestBody Doctor doctor) {
+    public ResponseEntity<Doctor> updateDoctor(@PathVariable("id") Long id, @Valid @RequestBody Doctor doctor) {
         return ResponseEntity.ok(doctorService.updateDoctor(id, doctor));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a doctor")
-    public ResponseEntity<Void> deleteDoctor(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteDoctor(@PathVariable("id") Long id) {
         doctorService.deleteDoctor(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/specialization/{specialization}")
     @Operation(summary = "Get doctors by specialization")
-    public ResponseEntity<List<Doctor>> getDoctorsBySpecialization(@PathVariable String specialization) {
+    public ResponseEntity<List<Doctor>> getDoctorsBySpecialization(
+            @PathVariable("specialization") String specialization) {
         return ResponseEntity.ok(doctorService.getDoctorsBySpecialization(specialization));
     }
 
@@ -84,7 +85,7 @@ public class DoctorController {
     @GetMapping("/search")
     @Operation(summary = "Search doctors by name")
     public ResponseEntity<List<Doctor>> searchDoctors(
-            @RequestParam(required = false, defaultValue = "") String keyword) {
+            @RequestParam(name = "keyword", required = false, defaultValue = "") String keyword) {
         return ResponseEntity.ok(doctorService.searchDoctors(keyword));
     }
 }

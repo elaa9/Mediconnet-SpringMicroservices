@@ -45,7 +45,7 @@ public class AppointmentController {
             @ApiResponse(responseCode = "404", description = "Appointment not found"),
             @ApiResponse(responseCode = "503", description = "Patient or Doctor service unavailable")
     })
-    public ResponseEntity<Appointment> getAppointmentById(@PathVariable Long id) {
+    public ResponseEntity<Appointment> getAppointmentById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(appointmentService.getAppointmentById(id));
     }
 
@@ -68,27 +68,29 @@ public class AppointmentController {
     @PutMapping("/{id}")
     @Operation(summary = "Update an appointment")
     public ResponseEntity<Appointment> updateAppointment(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody Appointment appointment) {
         return ResponseEntity.ok(appointmentService.updateAppointment(id, appointment));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete an appointment")
-    public ResponseEntity<Void> deleteAppointment(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteAppointment(@PathVariable("id") Long id) {
         appointmentService.deleteAppointment(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/patient/{patientId}")
     @Operation(summary = "Get appointments by patient ID")
-    public ResponseEntity<List<Appointment>> getAppointmentsByPatient(@PathVariable Long patientId) {
+    public ResponseEntity<List<Appointment>> getAppointmentsByPatient(
+            @PathVariable("patientId") Long patientId) {
         return ResponseEntity.ok(appointmentService.getAppointmentsByPatient(patientId));
     }
 
     @GetMapping("/doctor/{doctorId}")
     @Operation(summary = "Get appointments by doctor ID")
-    public ResponseEntity<List<Appointment>> getAppointmentsByDoctor(@PathVariable Long doctorId) {
+    public ResponseEntity<List<Appointment>> getAppointmentsByDoctor(
+            @PathVariable("doctorId") Long doctorId) {
         return ResponseEntity.ok(appointmentService.getAppointmentsByDoctor(doctorId));
     }
 
@@ -100,7 +102,7 @@ public class AppointmentController {
             @ApiResponse(responseCode = "404", description = "Appointment not found")
     })
     public ResponseEntity<Appointment> updateAppointmentStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody Map<String, String> body) {
         String status = body.get("status");
         return ResponseEntity.ok(appointmentService.updateAppointmentStatus(id, status));

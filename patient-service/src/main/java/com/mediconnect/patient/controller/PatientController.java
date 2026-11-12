@@ -52,7 +52,7 @@ public class PatientController {
             @ApiResponse(responseCode = "404", description = "Patient not found")
     })
     public ResponseEntity<Patient> getPatientById(
-            @Parameter(description = "Patient ID") @PathVariable Long id) {
+            @Parameter(description = "Patient ID") @PathVariable("id") Long id) {
         return ResponseEntity.ok(patientService.getPatientById(id));
     }
 
@@ -76,7 +76,7 @@ public class PatientController {
             @ApiResponse(responseCode = "409", description = "Email already in use")
     })
     public ResponseEntity<Patient> updatePatient(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody Patient patient) {
         return ResponseEntity.ok(patientService.updatePatient(id, patient));
     }
@@ -87,7 +87,7 @@ public class PatientController {
             @ApiResponse(responseCode = "204", description = "Patient deleted"),
             @ApiResponse(responseCode = "404", description = "Patient not found")
     })
-    public ResponseEntity<Void> deletePatient(@PathVariable Long id) {
+    public ResponseEntity<Void> deletePatient(@PathVariable("id") Long id) {
         patientService.deletePatient(id);
         return ResponseEntity.noContent().build();
     }
@@ -98,14 +98,14 @@ public class PatientController {
             @ApiResponse(responseCode = "200", description = "Patient found"),
             @ApiResponse(responseCode = "404", description = "Patient not found")
     })
-    public ResponseEntity<Patient> getPatientByEmail(@PathVariable String email) {
+    public ResponseEntity<Patient> getPatientByEmail(@PathVariable("email") String email) {
         return ResponseEntity.ok(patientService.getPatientByEmail(email));
     }
 
     @GetMapping("/search")
     @Operation(summary = "Search patients by name")
     public ResponseEntity<List<Patient>> searchPatients(
-            @RequestParam(required = false, defaultValue = "") String keyword) {
+            @RequestParam(name = "keyword", required = false, defaultValue = "") String keyword) {
         return ResponseEntity.ok(patientService.searchPatients(keyword));
     }
 }
