@@ -1,15 +1,20 @@
 package com.mediconnect.doctor.service;
 
+import com.mediconnect.doctor.auth.InvalidCredentialsException;
+import com.mediconnect.doctor.auth.InvalidPasswordException;
+import com.mediconnect.doctor.auth.LoginResponse;
 import com.mediconnect.doctor.entity.Doctor;
 import com.mediconnect.doctor.exception.DoctorNotFoundException;
 import com.mediconnect.doctor.exception.DuplicateEmailException;
 import com.mediconnect.doctor.repository.DoctorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @Slf4j
@@ -18,6 +23,7 @@ import java.util.List;
 public class DoctorServiceImpl implements DoctorService {
 
     private final DoctorRepository doctorRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional(readOnly = true)
@@ -37,12 +43,25 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     public Doctor createDoctor(Doctor doctor) {
         log.info("Creating new doctor: {}", doctor.getEmail());
-        if (doctorRepository.existsByEmail(doctor.getEmail())) {
+        if (doctorRepository.existsByEmailIgnoreCase(doctor.getEmail())) {
             throw new DuplicateEmailException("A doctor with email " + doctor.getEmail() + " already exists");
         }
+        doctor.setPasswordHash(encodePassword(doctor.getPasswordHash()));
         Doctor saved = doctorRepository.save(doctor);
         log.info("Doctor created with id: {}", saved.getId());
         return saved;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LoginResponse authenticate(String email, String password) {
+        Doctor doctor = doctorRepository.findByEmailIgnoreCase(email.trim())
+                .filter(d -> d.getPasswordHash() != null
+                        && passwordEncoder.matches(password, d.getPasswordHash()))
+                .orElseThrow(InvalidCredentialsException::new);
+
+        return new LoginResponse(doctor.getId(), "DOCTOR",
+                doctor.getFirstName() + " " + doctor.getLastName(), doctor.getEmail());
     }
 
     @Override
@@ -52,7 +71,7 @@ public class DoctorServiceImpl implements DoctorService {
                 .orElseThrow(() -> new DoctorNotFoundException("Doctor not found with id: " + id));
 
         if (!existing.getEmail().equalsIgnoreCase(updatedDoctor.getEmail())
-                && doctorRepository.existsByEmail(updatedDoctor.getEmail())) {
+                && doctorRepository.existsByEmailIgnoreCase(updatedDoctor.getEmail())) {
             throw new DuplicateEmailException("A doctor with email " + updatedDoctor.getEmail() + " already exists");
         }
 
@@ -65,6 +84,9 @@ public class DoctorServiceImpl implements DoctorService {
         existing.setDescription(updatedDoctor.getDescription());
         existing.setConsultationPrice(updatedDoctor.getConsultationPrice());
         existing.setAvailable(updatedDoctor.getAvailable());
+        if (updatedDoctor.getPasswordHash() != null && !updatedDoctor.getPasswordHash().isBlank()) {
+            existing.setPasswordHash(encodePassword(updatedDoctor.getPasswordHash()));
+        }
 
         return doctorRepository.save(existing);
     }
@@ -98,5 +120,16 @@ public class DoctorServiceImpl implements DoctorService {
         log.info("Searching doctors with keyword: {}", keyword);
         return doctorRepository
                 .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(keyword, keyword);
+    }
+
+    private String encodePassword(String password) {
+        if (password == null) {
+            throw new InvalidPasswordException();
+        }
+        int passwordBytes = password.getBytes(StandardCharsets.UTF_8).length;
+        if (passwordBytes < 8 || passwordBytes > 72) {
+            throw new InvalidPasswordException();
+        }
+        return passwordEncoder.encode(password);
     }
 }

@@ -1,5 +1,7 @@
 package com.mediconnect.doctor.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -39,6 +41,20 @@ public class Doctor {
     @Email(message = "Invalid email format")
     @Column(unique = true, nullable = false)
     private String email;
+
+    @Column(name = "password_hash")
+    @ToString.Exclude
+    private String passwordHash;
+
+    @JsonIgnore
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    @JsonProperty(value = "password", access = JsonProperty.Access.WRITE_ONLY)
+    public void setPassword(String password) {
+        this.passwordHash = password;
+    }
 
     @Pattern(regexp = "^[+]?[0-9]{8,15}$", message = "Invalid phone number")
     @Column(name = "phone")

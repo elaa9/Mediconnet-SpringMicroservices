@@ -1,6 +1,7 @@
 package com.mediconnect.patient.service;
 
 import com.mediconnect.patient.entity.Patient;
+import com.mediconnect.patient.auth.LoginResponse;
 
 import java.util.List;
 
@@ -14,6 +15,8 @@ public interface PatientService {
     Patient getPatientById(Long id);
 
     Patient createPatient(Patient patient);
+
+    LoginResponse authenticate(String email, String password);
 
     Patient updatePatient(Long id, Patient patient);
 

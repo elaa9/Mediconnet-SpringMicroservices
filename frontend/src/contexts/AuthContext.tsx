@@ -1,69 +1,61 @@
 import React, { createContext, useContext, useState, type ReactNode } from 'react'
-import type { DemoUser, UserRole } from '../types'
+import { patientApi } from '../api/patientApi'
+import { doctorApi } from '../api/doctorApi'
+import type { AuthUser } from '../types'
+
+const AUTH_STORAGE_KEY = 'mediconnect_auth_v2'
 
 /**
- * Demo Authentication Context
- *
- * This is a simplified role-selection mechanism for academic demonstration.
- * In a production system, this would be replaced by JWT-based authentication
- * with a dedicated auth microservice.
- *
- * Demo users are hardcoded for easy presentation:
- * - Admin: full access to all management pages
- * - Doctor: access to their own appointments and consultations
- * - Patient: access to their own profile and appointments
+ * Patient and doctor accounts are authenticated by their owning microservice.
+ * The admin shortcut remains a local academic-demo role.
  */
 
 interface AuthContextType {
-  user: DemoUser | null
-  login: (role: UserRole) => void
+  user: AuthUser | null
+  loginAsAdmin: () => void
+  loginWithCredentials: (role: 'PATIENT' | 'DOCTOR', email: string, password: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
-}
-
-const DEMO_USERS: Record<UserRole, DemoUser> = {
-  ADMIN: {
-    role: 'ADMIN',
-    name: 'Dr. Admin',
-    email: 'admin@mediconnect.com',
-  },
-  DOCTOR: {
-    role: 'DOCTOR',
-    name: 'Dr. Youssef El Idrissi',
-    id: 1,
-    email: 'youssef.elidrissi@mediconnect.com',
-  },
-  PATIENT: {
-    role: 'PATIENT',
-    name: 'Alice Martin',
-    id: 1,
-    email: 'alice.martin@example.com',
-  },
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<DemoUser | null>(() => {
-    const saved = localStorage.getItem('mediconnect_user')
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem(AUTH_STORAGE_KEY)
     return saved ? JSON.parse(saved) : null
   })
 
-  const login = (role: UserRole) => {
-    const demoUser = DEMO_USERS[role]
-    setUser(demoUser)
-    localStorage.setItem('mediconnect_user', JSON.stringify(demoUser))
+  const saveUser = (nextUser: AuthUser) => {
+    setUser(nextUser)
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextUser))
+  }
+
+  const loginAsAdmin = () => {
+    saveUser({
+      role: 'ADMIN',
+      name: 'Dr. Admin',
+      email: 'admin@mediconnect.com',
+    })
+  }
+
+  const loginWithCredentials = async (role: 'PATIENT' | 'DOCTOR', email: string, password: string) => {
+    const response = role === 'PATIENT'
+      ? await patientApi.login({ email, password })
+      : await doctorApi.login({ email, password })
+    saveUser(response.data)
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem('mediconnect_user')
+    localStorage.removeItem(AUTH_STORAGE_KEY)
   }
 
   return (
     <AuthContext.Provider value={{
       user,
-      login,
+      loginAsAdmin,
+      loginWithCredentials,
       logout,
       isAuthenticated: user !== null,
     }}>

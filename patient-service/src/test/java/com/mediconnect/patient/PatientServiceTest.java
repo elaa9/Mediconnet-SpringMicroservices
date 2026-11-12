@@ -1,10 +1,12 @@
 package com.mediconnect.patient;
 
 import com.mediconnect.patient.entity.Patient;
+import com.mediconnect.patient.auth.LoginResponse;
 import com.mediconnect.patient.exception.DuplicateEmailException;
 import com.mediconnect.patient.exception.PatientNotFoundException;
 import com.mediconnect.patient.repository.PatientRepository;
 import com.mediconnect.patient.service.PatientServiceImpl;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -33,6 +36,9 @@ class PatientServiceTest {
     @Mock
     private PatientRepository patientRepository;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private PatientServiceImpl patientService;
 
@@ -45,6 +51,7 @@ class PatientServiceTest {
                 .firstName("Alice")
                 .lastName("Martin")
                 .email("alice@example.com")
+                .passwordHash("initial-password")
                 .phone("+212600111001")
                 .dateOfBirth(LocalDate.of(1985, 3, 15))
                 .gender("Female")
@@ -55,7 +62,8 @@ class PatientServiceTest {
     @Test
     @DisplayName("Should create a valid patient successfully")
     void shouldCreatePatient_WhenEmailIsUnique() {
-        when(patientRepository.existsByEmail("alice@example.com")).thenReturn(false);
+        when(patientRepository.existsByEmailIgnoreCase("alice@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("initial-password")).thenReturn("encoded-password");
         when(patientRepository.save(any(Patient.class))).thenReturn(samplePatient);
 
         Patient result = patientService.createPatient(samplePatient);
@@ -63,14 +71,39 @@ class PatientServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getFirstName()).isEqualTo("Alice");
         assertThat(result.getEmail()).isEqualTo("alice@example.com");
+        assertThat(samplePatient.getPasswordHash()).isEqualTo("encoded-password");
         verify(patientRepository, times(1)).save(samplePatient);
+    }
+
+    @Test
+    @DisplayName("Should authenticate a patient using the stored password hash")
+    void shouldAuthenticatePatient() {
+        samplePatient.setPasswordHash("encoded-password");
+        when(patientRepository.findByEmailIgnoreCase("alice@example.com")).thenReturn(Optional.of(samplePatient));
+        when(passwordEncoder.matches("initial-password", "encoded-password")).thenReturn(true);
+
+        LoginResponse result = patientService.authenticate("alice@example.com", "initial-password");
+
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.role()).isEqualTo("PATIENT");
+        assertThat(result.email()).isEqualTo("alice@example.com");
+    }
+
+    @Test
+    @DisplayName("Should accept passwords in requests without serializing them in patient responses")
+    void shouldHidePatientPasswordFromJson() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        Patient patient = mapper.readValue("{\"password\":\"initial-password\"}", Patient.class);
+
+        assertThat(patient.getPasswordHash()).isEqualTo("initial-password");
+        assertThat(mapper.writeValueAsString(patient)).doesNotContain("password");
     }
 
     // ---- Test 2: Reject duplicate email ----
     @Test
     @DisplayName("Should throw DuplicateEmailException when email already exists")
     void shouldThrowException_WhenEmailAlreadyExists() {
-        when(patientRepository.existsByEmail("alice@example.com")).thenReturn(true);
+        when(patientRepository.existsByEmailIgnoreCase("alice@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> patientService.createPatient(samplePatient))
                 .isInstanceOf(DuplicateEmailException.class)

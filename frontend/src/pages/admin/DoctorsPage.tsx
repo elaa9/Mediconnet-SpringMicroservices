@@ -15,10 +15,10 @@ const SPECIALIZATIONS = [
   'Endocrinology', 'Ophthalmology', 'Gastroenterology', 'Psychiatry', 'General Medicine'
 ]
 
-const EMPTY: Omit<Doctor, 'id' | 'createdAt'> = {
+const EMPTY: Omit<Doctor, 'id' | 'createdAt'> & { password: string } = {
   firstName: '', lastName: '', email: '', phone: '',
   specialization: '', experienceYears: 0, description: '',
-  consultationPrice: 0, available: true,
+  consultationPrice: 0, available: true, password: '',
 }
 
 export function DoctorsPage() {
@@ -54,7 +54,7 @@ export function DoctorsPage() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setEditingDoctor(null); setShowForm(true) }
   const openEdit = (d: Doctor) => {
-    setForm({ firstName: d.firstName, lastName: d.lastName, email: d.email, phone: d.phone || '', specialization: d.specialization, experienceYears: d.experienceYears || 0, description: d.description || '', consultationPrice: d.consultationPrice || 0, available: d.available ?? true })
+    setForm({ firstName: d.firstName, lastName: d.lastName, email: d.email, phone: d.phone || '', specialization: d.specialization, experienceYears: d.experienceYears || 0, description: d.description || '', consultationPrice: d.consultationPrice || 0, available: d.available ?? true, password: '' })
     setEditingDoctor(d); setShowForm(true)
   }
 
@@ -138,6 +138,7 @@ export function DoctorsPage() {
               <div><label className="label">First Name *</label><input className="input-field" required value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} /></div>
               <div><label className="label">Last Name *</label><input className="input-field" required value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} /></div>
               <div><label className="label">Email *</label><input className="input-field" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+              <div><label className="label">{editingDoctor ? 'New password (optional)' : 'Initial password *'}</label><input className="input-field" type="password" autoComplete="new-password" minLength={8} maxLength={72} required={!editingDoctor} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
               <div><label className="label">Phone</label><input className="input-field" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
               <div><label className="label">Specialization *</label>
                 <select className="input-field" required value={form.specialization} onChange={e => setForm({ ...form, specialization: e.target.value })}>

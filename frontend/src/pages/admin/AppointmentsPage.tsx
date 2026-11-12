@@ -11,6 +11,7 @@ import { patientApi } from '../../api/patientApi'
 import { doctorApi } from '../../api/doctorApi'
 import { getAppointmentStatusColor, formatDate, getErrorMessage } from '../../utils/statusUtils'
 import type { Appointment, Patient, Doctor } from '../../types'
+import { useAuth } from '../../contexts/AuthContext'
 
 const STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED']
 
@@ -19,6 +20,8 @@ const EMPTY: Omit<Appointment, 'id' | 'createdAt' | 'patientName' | 'patientEmai
 }
 
 export function AppointmentsPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [filtered, setFiltered] = useState<Appointment[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
@@ -36,17 +39,25 @@ export function AppointmentsPage() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [aRes, pRes, dRes] = await Promise.all([
-        appointmentApi.getAll(), patientApi.getAll(), doctorApi.getAll()
-      ])
-      setAppointments(aRes.data)
-      setPatients(pRes.data)
-      setDoctors(dRes.data)
+      if (!user) return
+      if (user.role === 'ADMIN') {
+        const [aRes, pRes, dRes] = await Promise.all([
+          appointmentApi.getAll(), patientApi.getAll(), doctorApi.getAll()
+        ])
+        setAppointments(aRes.data)
+        setPatients(pRes.data)
+        setDoctors(dRes.data)
+      } else if (user.id) {
+        const response = user.role === 'PATIENT'
+          ? await appointmentApi.getByPatient(user.id)
+          : await appointmentApi.getByDoctor(user.id)
+        setAppointments(response.data)
+      }
     } catch (err) { setError(getErrorMessage(err)) }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { fetchAll() }, [user])
   useEffect(() => {
     const kw = search.toLowerCase()
     setFiltered(appointments.filter(a =>
@@ -83,7 +94,7 @@ export function AppointmentsPage() {
 
   return (
     <div>
-      <TopBar title="Appointments" subtitle="Manage and track appointments" />
+      <TopBar title={isAdmin ? 'Appointments' : 'My Appointments'} subtitle={isAdmin ? 'Manage and track appointments' : 'Appointments linked to your account'} />
       <div className="p-6">
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
@@ -94,12 +105,12 @@ export function AppointmentsPage() {
             <option value="">All statuses</option>
             {STATUSES.map(s => <option key={s}>{s}</option>)}
           </select>
-          <button onClick={openAdd} className="btn-primary"><Plus className="h-4 w-4" /> New Appointment</button>
+          {isAdmin && <button onClick={openAdd} className="btn-primary"><Plus className="h-4 w-4" /> New Appointment</button>}
         </div>
         {error && <ErrorAlert message={error} onDismiss={() => setError('')} />}
         {loading ? <LoadingSpinner /> : (
           <div className="card overflow-hidden p-0">
-            {filtered.length === 0 ? <EmptyState icon={Calendar} title="No appointments found" action={<button onClick={openAdd} className="btn-primary">Create Appointment</button>} /> : (
+            {filtered.length === 0 ? <EmptyState icon={Calendar} title="No appointments found" action={isAdmin ? <button onClick={openAdd} className="btn-primary">Create Appointment</button> : undefined} /> : (
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Patient</th>
@@ -107,7 +118,7 @@ export function AppointmentsPage() {
                   <th className="table-header">Date & Time</th>
                   <th className="table-header hidden md:table-cell">Reason</th>
                   <th className="table-header">Status</th>
-                  <th className="table-header">Actions</th>
+                  {isAdmin && <th className="table-header">Actions</th>}
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.map(a => (
@@ -117,12 +128,12 @@ export function AppointmentsPage() {
                       <td className="table-cell text-gray-600">{formatDate(a.appointmentDate)}<br /><span className="text-xs text-gray-400">{a.appointmentTime}</span></td>
                       <td className="table-cell hidden md:table-cell text-gray-600 max-w-xs truncate">{a.reason || '—'}</td>
                       <td className="table-cell"><span className={`badge ${getAppointmentStatusColor(a.status)}`}>{a.status}</span></td>
-                      <td className="table-cell">
+                      {isAdmin && <td className="table-cell">
                         <div className="flex gap-2">
                           <button onClick={() => openEdit(a)} className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"><Pencil className="h-4 w-4" /></button>
                           <button onClick={() => setDeleteId(a.id!)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
                         </div>
-                      </td>
+                      </td>}
                     </tr>
                   ))}
                 </tbody>

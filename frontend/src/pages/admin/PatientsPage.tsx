@@ -10,9 +10,9 @@ import { patientApi } from '../../api/patientApi'
 import { formatDate, getErrorMessage } from '../../utils/statusUtils'
 import type { Patient } from '../../types'
 
-const EMPTY_PATIENT: Omit<Patient, 'id' | 'createdAt'> = {
+const EMPTY_PATIENT: Omit<Patient, 'id' | 'createdAt'> & { password: string } = {
   firstName: '', lastName: '', email: '', phone: '',
-  dateOfBirth: '', gender: '', address: '', medicalHistory: '',
+  dateOfBirth: '', gender: '', address: '', medicalHistory: '', password: '',
 }
 
 export function PatientsPage() {
@@ -52,7 +52,7 @@ export function PatientsPage() {
   }, [search, patients])
 
   const openAdd = () => { setForm({ ...EMPTY_PATIENT }); setEditingPatient(null); setShowForm(true) }
-  const openEdit = (p: Patient) => { setForm({ firstName: p.firstName, lastName: p.lastName, email: p.email, phone: p.phone || '', dateOfBirth: p.dateOfBirth || '', gender: p.gender || '', address: p.address || '', medicalHistory: p.medicalHistory || '' }); setEditingPatient(p); setShowForm(true) }
+  const openEdit = (p: Patient) => { setForm({ firstName: p.firstName, lastName: p.lastName, email: p.email, phone: p.phone || '', dateOfBirth: p.dateOfBirth || '', gender: p.gender || '', address: p.address || '', medicalHistory: p.medicalHistory || '', password: '' }); setEditingPatient(p); setShowForm(true) }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -164,6 +164,10 @@ export function PatientsPage() {
               <div>
                 <label className="label">Email *</label>
                 <input className="input-field" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">{editingPatient ? 'New password (optional)' : 'Initial password *'}</label>
+                <input className="input-field" type="password" autoComplete="new-password" minLength={8} maxLength={72} required={!editingPatient} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
               </div>
               <div>
                 <label className="label">Phone</label>

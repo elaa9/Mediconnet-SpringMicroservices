@@ -1,15 +1,20 @@
 package com.mediconnect.patient.service;
 
+import com.mediconnect.patient.auth.InvalidCredentialsException;
+import com.mediconnect.patient.auth.InvalidPasswordException;
+import com.mediconnect.patient.auth.LoginResponse;
 import com.mediconnect.patient.entity.Patient;
 import com.mediconnect.patient.exception.DuplicateEmailException;
 import com.mediconnect.patient.exception.PatientNotFoundException;
 import com.mediconnect.patient.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Patient service implementation.
@@ -21,6 +26,7 @@ import java.util.List;
 public class PatientServiceImpl implements PatientService {
 
     private final PatientRepository patientRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional(readOnly = true)
@@ -40,12 +46,25 @@ public class PatientServiceImpl implements PatientService {
     @Override
     public Patient createPatient(Patient patient) {
         log.info("Creating new patient: {}", patient.getEmail());
-        if (patientRepository.existsByEmail(patient.getEmail())) {
+        if (patientRepository.existsByEmailIgnoreCase(patient.getEmail())) {
             throw new DuplicateEmailException("A patient with email " + patient.getEmail() + " already exists");
         }
+        patient.setPasswordHash(encodePassword(patient.getPasswordHash()));
         Patient saved = patientRepository.save(patient);
         log.info("Patient created with id: {}", saved.getId());
         return saved;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LoginResponse authenticate(String email, String password) {
+        Patient patient = patientRepository.findByEmailIgnoreCase(email.trim())
+                .filter(p -> p.getPasswordHash() != null
+                        && passwordEncoder.matches(password, p.getPasswordHash()))
+                .orElseThrow(InvalidCredentialsException::new);
+
+        return new LoginResponse(patient.getId(), "PATIENT",
+                patient.getFirstName() + " " + patient.getLastName(), patient.getEmail());
     }
 
     @Override
@@ -56,7 +75,7 @@ public class PatientServiceImpl implements PatientService {
 
         // Check email uniqueness only if email changed
         if (!existing.getEmail().equalsIgnoreCase(updatedPatient.getEmail())
-                && patientRepository.existsByEmail(updatedPatient.getEmail())) {
+                && patientRepository.existsByEmailIgnoreCase(updatedPatient.getEmail())) {
             throw new DuplicateEmailException("A patient with email " + updatedPatient.getEmail() + " already exists");
         }
 
@@ -68,6 +87,9 @@ public class PatientServiceImpl implements PatientService {
         existing.setGender(updatedPatient.getGender());
         existing.setAddress(updatedPatient.getAddress());
         existing.setMedicalHistory(updatedPatient.getMedicalHistory());
+        if (updatedPatient.getPasswordHash() != null && !updatedPatient.getPasswordHash().isBlank()) {
+            existing.setPasswordHash(encodePassword(updatedPatient.getPasswordHash()));
+        }
 
         return patientRepository.save(existing);
     }
@@ -85,7 +107,7 @@ public class PatientServiceImpl implements PatientService {
     @Transactional(readOnly = true)
     public Patient getPatientByEmail(String email) {
         log.info("Fetching patient with email: {}", email);
-        return patientRepository.findByEmail(email)
+        return patientRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new PatientNotFoundException("Patient not found with email: " + email));
     }
 
@@ -95,5 +117,16 @@ public class PatientServiceImpl implements PatientService {
         log.info("Searching patients with keyword: {}", keyword);
         return patientRepository
                 .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(keyword, keyword);
+    }
+
+    private String encodePassword(String password) {
+        if (password == null) {
+            throw new InvalidPasswordException();
+        }
+        int passwordBytes = password.getBytes(StandardCharsets.UTF_8).length;
+        if (passwordBytes < 8 || passwordBytes > 72) {
+            throw new InvalidPasswordException();
+        }
+        return passwordEncoder.encode(password);
     }
 }

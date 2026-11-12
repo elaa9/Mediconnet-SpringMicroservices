@@ -15,6 +15,9 @@ export interface Patient {
   createdAt?: string;
 }
 
+export type PatientCreate = Omit<Patient, 'id' | 'createdAt'> & { password: string };
+export type PatientUpdate = Omit<Patient, 'id' | 'createdAt'> & { password?: string };
+
 export interface Doctor {
   id?: number;
   firstName: string;
@@ -28,6 +31,9 @@ export interface Doctor {
   available?: boolean;
   createdAt?: string;
 }
+
+export type DoctorCreate = Omit<Doctor, 'id' | 'createdAt'> & { password: string };
+export type DoctorUpdate = Omit<Doctor, 'id' | 'createdAt'> & { password?: string };
 
 export interface Appointment {
   id?: number;
@@ -61,7 +67,7 @@ export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLET
 
 export type UserRole = 'ADMIN' | 'DOCTOR' | 'PATIENT';
 
-export interface DemoUser {
+export interface AuthUser {
   role: UserRole;
   name: string;
   id?: number;

@@ -1,5 +1,7 @@
 package com.mediconnect.doctor.controller;
 
+import com.mediconnect.doctor.auth.LoginRequest;
+import com.mediconnect.doctor.auth.LoginResponse;
 import com.mediconnect.doctor.entity.Doctor;
 import com.mediconnect.doctor.service.DoctorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +23,11 @@ import java.util.List;
 public class DoctorController {
 
     private final DoctorService doctorService;
+
+    @PostMapping("/auth/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(doctorService.authenticate(request.email(), request.password()));
+    }
 
     @GetMapping
     @Operation(summary = "Get all doctors")

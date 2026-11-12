@@ -166,11 +166,7 @@ By default, services use:
 - Username: `root`
 - Password: *(empty)*
 
-To override, set environment variables before starting each service:
-```bash
-set DB_USERNAME=root
-set DB_PASSWORD=yourpassword
-```
+If your MySQL root account has a password, update `spring.datasource.password` in each service's `application.properties`.
 
 ---
 
@@ -248,6 +244,11 @@ VITE_API_URL=http://localhost:8080
 
 All API calls go through the API Gateway (port 8080). Never call individual service ports directly.
 
+### Patient and doctor sign-in
+Use the **Admin** demo shortcut to create patient or doctor records. Set an initial password (at least 8 characters) in the form. Then sign out and choose the matching role on the login screen, using that record's email and password. Passwords are stored as BCrypt hashes; editing a record without entering a new password keeps its current password. For records that existed before this change, edit the record and set a password before trying to log in.
+
+The admin shortcut is still a local academic-demo role. Patient and doctor login verifies credentials and opens the matching profile, but the backend CRUD APIs do not yet enforce authentication or record ownership. Do not expose this demo to the internet or use it for real medical data.
+
 ---
 
 ## 10. Service URLs
@@ -276,6 +277,7 @@ All API calls go through the API Gateway (port 8080). Never call individual serv
 GET    /api/patients              — List all patients
 GET    /api/patients/{id}         — Get patient by ID
 POST   /api/patients              — Create patient
+POST   /api/patients/auth/login   — Patient email/password login
 PUT    /api/patients/{id}         — Update patient
 DELETE /api/patients/{id}         — Delete patient
 GET    /api/patients/email/{email} — Find by email
@@ -287,6 +289,7 @@ GET    /api/patients/search?keyword=Alice — Search
 GET    /api/doctors               — List all doctors
 GET    /api/doctors/{id}          — Get doctor by ID
 POST   /api/doctors               — Create doctor
+POST   /api/doctors/auth/login    — Doctor email/password login
 PUT    /api/doctors/{id}          — Update doctor
 DELETE /api/doctors/{id}          — Delete doctor
 GET    /api/doctors/available     — Available doctors

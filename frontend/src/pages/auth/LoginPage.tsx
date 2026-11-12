@@ -1,55 +1,47 @@
+import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Heart, Shield, Stethoscope, User } from 'lucide-react'
+import { Heart, Shield } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { getErrorMessage } from '../../utils/statusUtils'
 import type { UserRole } from '../../types'
 
-interface DemoCard {
-  role: UserRole
-  icon: React.ElementType
-  color: string
-  bg: string
-  title: string
-  description: string
-}
-
-const demoRoles: DemoCard[] = [
-  {
-    role: 'ADMIN',
-    icon: Shield,
-    color: 'text-purple-600',
-    bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
-    title: 'Admin',
-    description: 'Full access — manage patients, doctors, appointments, and consultations',
-  },
-  {
-    role: 'DOCTOR',
-    icon: Stethoscope,
-    color: 'text-blue-600',
-    bg: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
-    title: 'Doctor',
-    description: 'Dr. Youssef El Idrissi — view appointments and manage consultations',
-  },
-  {
-    role: 'PATIENT',
-    icon: User,
-    color: 'text-green-600',
-    bg: 'bg-green-50 border-green-200 hover:bg-green-100',
-    title: 'Patient',
-    description: 'Alice Martin — view your profile and upcoming appointments',
-  },
-]
-
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth()
+  const { user, isAuthenticated, loginAsAdmin, loginWithCredentials } = useAuth()
+  const [role, setRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={user?.role === 'ADMIN' ? '/dashboard' : '/my-profile'} replace />
   }
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    setError('')
+    setSubmitting(true)
+    try {
+      await loginWithCredentials(role, email.trim(), password)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleAdminLogin = () => {
+    loginAsAdmin()
+  }
+
+  const roleOptions: { value: UserRole; label: string }[] = [
+    { value: 'PATIENT', label: 'Patient' },
+    { value: 'DOCTOR', label: 'Doctor' },
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 bg-primary-600 rounded-xl mb-4">
             <Heart className="h-8 w-8 text-white" />
@@ -58,40 +50,61 @@ export function LoginPage() {
           <p className="text-gray-500 mt-2">Healthcare Management Platform</p>
         </div>
 
-        {/* Demo notice */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-amber-800 font-medium">Academic Demo Mode</p>
-          <p className="text-xs text-amber-700 mt-1">
-            Select a role below to access the platform. No password required.
-            This simulates role-based access for the university demonstration.
-          </p>
-        </div>
-
-        {/* Role selection */}
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700 mb-3">Select your demo role:</p>
-          {demoRoles.map(({ role, icon: Icon, color, bg, title, description }) => (
-            <button
-              key={role}
-              onClick={() => login(role)}
-              className={`w-full text-left p-4 border rounded-xl transition-all duration-150 ${bg}`}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="label" htmlFor="role">Sign in as</label>
+            <select
+              id="role"
+              className="input-field"
+              value={role}
+              onChange={event => setRole(event.target.value === 'DOCTOR' ? 'DOCTOR' : 'PATIENT')}
             >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-white ${color}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className={`font-semibold ${color}`}>{title}</div>
-                  <div className="text-xs text-gray-600 mt-0.5">{description}</div>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+              {roleOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="email">Email</label>
+            <input
+              id="email"
+              className="input-field"
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={event => setEmail(event.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="password">Password</label>
+            <input
+              id="password"
+              className="input-field"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={event => setPassword(event.target.value)}
+            />
+          </div>
+          {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{error}</p>}
+          <button type="submit" className="btn-primary w-full justify-center" disabled={submitting}>
+            {submitting ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
 
-        <p className="text-xs text-gray-400 text-center mt-6">
-          JEE2 University Project — MediConnect Microservices Demo
-        </p>
+        <div className="mt-6 border-t pt-5">
+          <p className="text-sm text-gray-600 mb-3">Admin access for managing records:</p>
+          <button
+            type="button"
+            onClick={handleAdminLogin}
+            className="w-full flex items-center justify-center gap-2 p-3 border border-purple-200 rounded-xl text-purple-700 hover:bg-purple-50"
+          >
+            <Shield className="h-4 w-4" />
+            Continue as demo admin
+          </button>
+        </div>
       </div>
     </div>
   )
