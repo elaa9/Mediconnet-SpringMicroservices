@@ -9,6 +9,7 @@ import { EmptyState } from '../../components/common/EmptyState'
 import { ConfirmDialog } from '../../components/common/ConfirmDialog'
 import { appointmentApi } from '../../api/appointmentApi'
 import { consultationApi } from '../../api/consultationApi'
+import { useAuth } from '../../contexts/AuthContext'
 import { formatDate, formatDateTime, getErrorMessage } from '../../utils/statusUtils'
 import type { Appointment, Consultation } from '../../types'
 
@@ -20,6 +21,7 @@ const EMPTY: Omit<Consultation, 'id' | 'createdAt'> = {
 export function ConsultationsPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [consultations, setConsultations] = useState<Consultation[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,12 +34,26 @@ export function ConsultationsPage() {
 
   const fetchAll = async () => {
     setLoading(true)
+    setError('')
     try {
-      const [consultationsResponse, appointmentsResponse] = await Promise.all([
-        consultationApi.getAll(), appointmentApi.getAll(),
-      ])
-      setConsultations(consultationsResponse.data)
-      setAppointments(appointmentsResponse.data)
+      if (user?.role === 'DOCTOR') {
+        if (user.id === undefined) throw new Error('The signed-in doctor account has no ID')
+        const [consultationsResponse, appointmentsResponse] = await Promise.all([
+          consultationApi.getByDoctor(user.id),
+          appointmentApi.getByDoctor(user.id),
+        ])
+        setConsultations(consultationsResponse.data)
+        setAppointments(appointmentsResponse.data)
+      } else if (user?.role === 'ADMIN') {
+        const [consultationsResponse, appointmentsResponse] = await Promise.all([
+          consultationApi.getAll(),
+          appointmentApi.getAll(),
+        ])
+        setConsultations(consultationsResponse.data)
+        setAppointments(appointmentsResponse.data)
+      } else {
+        throw new Error('Only doctors and admins can view consultations')
+      }
     }
     catch (err) { setError(getErrorMessage(err)) }
     finally { setLoading(false) }
