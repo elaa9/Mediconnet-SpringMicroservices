@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Pencil, Trash2, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { TopBar } from '../../components/layout/TopBar'
@@ -6,9 +7,10 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner'
 import { ErrorAlert } from '../../components/common/ErrorAlert'
 import { EmptyState } from '../../components/common/EmptyState'
 import { ConfirmDialog } from '../../components/common/ConfirmDialog'
+import { appointmentApi } from '../../api/appointmentApi'
 import { consultationApi } from '../../api/consultationApi'
-import { formatDateTime, getErrorMessage } from '../../utils/statusUtils'
-import type { Consultation } from '../../types'
+import { formatDate, formatDateTime, getErrorMessage } from '../../utils/statusUtils'
+import type { Appointment, Consultation } from '../../types'
 
 const EMPTY: Omit<Consultation, 'id' | 'createdAt'> = {
   appointmentId: 0, patientId: 0, doctorId: 0,
@@ -16,7 +18,10 @@ const EMPTY: Omit<Consultation, 'id' | 'createdAt'> = {
 }
 
 export function ConsultationsPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [consultations, setConsultations] = useState<Consultation[]>([])
+  const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -27,17 +32,56 @@ export function ConsultationsPage() {
 
   const fetchAll = async () => {
     setLoading(true)
-    try { const { data } = await consultationApi.getAll(); setConsultations(data) }
+    try {
+      const [consultationsResponse, appointmentsResponse] = await Promise.all([
+        consultationApi.getAll(), appointmentApi.getAll(),
+      ])
+      setConsultations(consultationsResponse.data)
+      setAppointments(appointmentsResponse.data)
+    }
     catch (err) { setError(getErrorMessage(err)) }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchAll() }, [])
-
-  const openAdd = () => { setForm({ ...EMPTY }); setEditingId(null); setShowForm(true) }
+  const openAdd = (appointment?: Appointment) => {
+    if (appointment && consultations.some(c => c.appointmentId === appointment.id)) {
+      toast.error('This appointment already has a consultation')
+      return
+    }
+    setForm({
+      ...EMPTY,
+      appointmentId: appointment?.id ?? 0,
+      patientId: appointment?.patientId ?? 0,
+      doctorId: appointment?.doctorId ?? 0,
+    })
+    setEditingId(null)
+    setShowForm(true)
+  }
   const openEdit = (c: Consultation) => {
     setForm({ appointmentId: c.appointmentId, patientId: c.patientId, doctorId: c.doctorId, diagnosis: c.diagnosis || '', prescription: c.prescription || '', notes: c.notes || '', consultationDate: c.consultationDate || '' })
     setEditingId(c.id!); setShowForm(true)
+  }
+
+  useEffect(() => { fetchAll() }, [])
+
+  useEffect(() => {
+    const appointmentId = location.state?.appointmentId
+    if (loading || !appointmentId) return
+    const appointment = appointments.find(a => a.id === appointmentId)
+    if (appointment) openAdd(appointment)
+    else toast.error('Appointment could not be found')
+    navigate(location.pathname, { replace: true, state: null })
+  }, [appointments, loading, location.pathname, location.state, navigate])
+
+  const updateAppointment = (appointmentId: number) => {
+    const appointment = appointments.find(a => a.id === appointmentId)
+    if (!appointment) return
+    setForm({
+      ...form,
+      appointmentId,
+      patientId: appointment.patientId,
+      doctorId: appointment.doctorId,
+    })
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -61,15 +105,14 @@ export function ConsultationsPage() {
       <TopBar title="Consultations" subtitle="Medical consultation records" />
       <div className="p-6">
         <div className="flex justify-end mb-6">
-          <button onClick={openAdd} className="btn-primary"><Plus className="h-4 w-4" /> New Consultation</button>
+          <button onClick={() => openAdd()} className="btn-primary"><Plus className="h-4 w-4" /> New Consultation</button>
         </div>
         {error && <ErrorAlert message={error} onDismiss={() => setError('')} />}
         {loading ? <LoadingSpinner /> : (
           <div className="card overflow-hidden p-0">
-            {consultations.length === 0 ? <EmptyState icon={FileText} title="No consultations yet" action={<button onClick={openAdd} className="btn-primary">Add Consultation</button>} /> : (
+            {consultations.length === 0 ? <EmptyState icon={FileText} title="No consultations yet" action={<button onClick={() => openAdd()} className="btn-primary">Add Consultation</button>} /> : (
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
-                  <th className="table-header">ID</th>
                   <th className="table-header">Appointment</th>
                   <th className="table-header">Patient</th>
                   <th className="table-header">Doctor</th>
@@ -78,22 +121,26 @@ export function ConsultationsPage() {
                   <th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                  {consultations.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50">
-                      <td className="table-cell text-gray-500">#{c.id}</td>
-                      <td className="table-cell">Apt #{c.appointmentId}</td>
-                      <td className="table-cell">Patient #{c.patientId}</td>
-                      <td className="table-cell">Doctor #{c.doctorId}</td>
-                      <td className="table-cell hidden md:table-cell text-gray-600 max-w-xs truncate">{c.diagnosis || '—'}</td>
-                      <td className="table-cell hidden lg:table-cell text-gray-500 text-xs">{formatDateTime(c.consultationDate)}</td>
-                      <td className="table-cell">
-                        <div className="flex gap-2">
-                          <button onClick={() => openEdit(c)} className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"><Pencil className="h-4 w-4" /></button>
-                          <button onClick={() => setDeleteId(c.id!)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {consultations.map(c => {
+                    const appointment = appointments.find(a => a.id === c.appointmentId)
+                    return (
+                      <tr key={c.id} className="hover:bg-gray-50">
+                        <td className="table-cell">{appointment
+                          ? <>{formatDate(appointment.appointmentDate)}<br /><span className="text-xs text-gray-400">{appointment.appointmentTime}</span></>
+                          : 'Appointment details unavailable'}</td>
+                        <td className="table-cell">{appointment?.patientName || 'Patient unavailable'}</td>
+                        <td className="table-cell">{appointment?.doctorName || 'Doctor unavailable'}</td>
+                        <td className="table-cell hidden md:table-cell text-gray-600 max-w-xs truncate">{c.diagnosis || '—'}</td>
+                        <td className="table-cell hidden lg:table-cell text-gray-500 text-xs">{formatDateTime(c.consultationDate)}</td>
+                        <td className="table-cell">
+                          <div className="flex gap-2">
+                            <button onClick={() => openEdit(c)} className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => setDeleteId(c.id!)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -107,10 +154,32 @@ export function ConsultationsPage() {
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto">
             <div className="p-6 border-b"><h2 className="text-lg font-semibold">{editingId ? 'Edit Consultation' : 'New Consultation'}</h2></div>
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div><label className="label">Appointment ID *</label><input className="input-field" type="number" required value={form.appointmentId || ''} onChange={e => setForm({ ...form, appointmentId: Number(e.target.value) })} /></div>
-                <div><label className="label">Patient ID *</label><input className="input-field" type="number" required value={form.patientId || ''} onChange={e => setForm({ ...form, patientId: Number(e.target.value) })} /></div>
-                <div><label className="label">Doctor ID *</label><input className="input-field" type="number" required value={form.doctorId || ''} onChange={e => setForm({ ...form, doctorId: Number(e.target.value) })} /></div>
+              <div>
+                <label className="label">Appointment *</label>
+                <select
+                  className="input-field"
+                  required
+                  disabled={editingId !== null}
+                  value={form.appointmentId || ''}
+                  onChange={e => updateAppointment(Number(e.target.value))}
+                >
+                  <option value="">Select an appointment</option>
+                  {appointments
+                    .filter(a => editingId !== null
+                      ? a.id === form.appointmentId
+                      : !consultations.some(c => c.appointmentId === a.id))
+                    .map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.patientName || 'Patient unavailable'} — {a.doctorName || 'Doctor unavailable'} · {formatDate(a.appointmentDate)} {a.appointmentTime}
+                      </option>
+                    ))}
+                </select>
+                {form.appointmentId > 0 && (
+                  <p className="mt-1 text-sm text-gray-500">
+                    Patient: {appointments.find(a => a.id === form.appointmentId)?.patientName || 'Unavailable'}
+                    {' · '}Doctor: {appointments.find(a => a.id === form.appointmentId)?.doctorName || 'Unavailable'}
+                  </p>
+                )}
               </div>
               <div><label className="label">Diagnosis</label><textarea className="input-field min-h-16" value={form.diagnosis} onChange={e => setForm({ ...form, diagnosis: e.target.value })} /></div>
               <div><label className="label">Prescription</label><textarea className="input-field min-h-16" value={form.prescription} onChange={e => setForm({ ...form, prescription: e.target.value })} /></div>

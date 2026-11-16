@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Search, Calendar } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Pencil, Trash2, Search, Calendar, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { TopBar } from '../../components/layout/TopBar'
 import { LoadingSpinner } from '../../components/common/LoadingSpinner'
@@ -21,7 +22,9 @@ const EMPTY: Omit<Appointment, 'id' | 'createdAt' | 'patientName' | 'patientEmai
 
 export function AppointmentsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isAdmin = user?.role === 'ADMIN'
+  const canAddConsultation = user?.role === 'ADMIN' || user?.role === 'DOCTOR'
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [filtered, setFiltered] = useState<Appointment[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
@@ -118,20 +121,28 @@ export function AppointmentsPage() {
                   <th className="table-header">Date & Time</th>
                   <th className="table-header hidden md:table-cell">Reason</th>
                   <th className="table-header">Status</th>
-                  {isAdmin && <th className="table-header">Actions</th>}
+                  {canAddConsultation && <th className="table-header">Actions</th>}
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.map(a => (
                     <tr key={a.id} className="hover:bg-gray-50">
-                      <td className="table-cell font-medium">{a.patientName || `Patient #${a.patientId}`}</td>
-                      <td className="table-cell hidden sm:table-cell text-gray-600">{a.doctorName || `Doctor #${a.doctorId}`}</td>
+                      <td className="table-cell font-medium">{a.patientName || 'Patient unavailable'}</td>
+                      <td className="table-cell hidden sm:table-cell text-gray-600">{a.doctorName || 'Doctor unavailable'}</td>
                       <td className="table-cell text-gray-600">{formatDate(a.appointmentDate)}<br /><span className="text-xs text-gray-400">{a.appointmentTime}</span></td>
                       <td className="table-cell hidden md:table-cell text-gray-600 max-w-xs truncate">{a.reason || '—'}</td>
                       <td className="table-cell"><span className={`badge ${getAppointmentStatusColor(a.status)}`}>{a.status}</span></td>
-                      {isAdmin && <td className="table-cell">
+                      {canAddConsultation && <td className="table-cell">
                         <div className="flex gap-2">
-                          <button onClick={() => openEdit(a)} className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"><Pencil className="h-4 w-4" /></button>
-                          <button onClick={() => setDeleteId(a.id!)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                          {isAdmin && <>
+                            <button onClick={() => openEdit(a)} aria-label="Edit appointment" title="Edit appointment" className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => setDeleteId(a.id!)} aria-label="Delete appointment" title="Delete appointment" className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                          </>}
+                          {canAddConsultation && <button
+                            onClick={() => navigate('/consultations', { state: { appointmentId: a.id } })}
+                            aria-label="Add consultation"
+                            title="Add consultation"
+                            className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded"
+                          ><FileText className="h-4 w-4" /></button>}
                         </div>
                       </td>}
                     </tr>
