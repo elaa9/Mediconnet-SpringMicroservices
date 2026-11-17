@@ -180,11 +180,15 @@ Launch MySQL (XAMPP or standalone).
 ### Step 2 — Discovery Server (FIRST)
 ```bash
 cd discovery-server
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 # Wait until: Started DiscoveryServerApplication on port 8761
 ```
 
 Verify: `http://localhost:8761`
+
+The local profile disables Eureka self-preservation so stale instances can expire
+when running only a few services locally. Do not activate this profile in production.
+When launching from an IDE, set the active Spring profile to `local`.
 
 ### Step 3 — Patient Service
 ```bash
